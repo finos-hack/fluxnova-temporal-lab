@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: fluxnova-engine
+  datasource:
+    # In-memory: every `docker compose up` starts from a clean engine.
+    url: jdbc:h2:mem:fluxnova;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: sa
+
+fluxnova:
+  bpm:
+    admin-user:
+      id: demo
+      password: demo
+      first-name: Demo
+      last-name: User
+    filter:
+      create: All tasks
+    authorization:
+      enabled: false
+    auto-deployment-enabled: true
+    deployment-resource-pattern: classpath*:processes/*.bpmn,classpath*:processes/*.dmn
+    database:
+      schema-update: true
+    job-execution:
+      enabled: true
+    webapp:
+      index-redirect-enabled: true
+    generic-properties:
+      properties:
+        historyTimeToLive: P30D
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    org.finos.fluxnova.bpm.engine.externaltask: INFO

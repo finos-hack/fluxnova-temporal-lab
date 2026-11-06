@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_KycOnboarding"
+                  targetNamespace="http://fluxnova.finos.org/lab/kyc"
+                  exporter="Fluxnova x Temporal lab" exporterVersion="0.1.0">
+
+  <bpmn:process id="kyc-onboarding" name="Customer onboarding (KYC)" isExecutable="true" camunda:historyTimeToLive="30">
+
+    <bpmn:documentation>Business process in Fluxnova. The "Document checks" task is a Temporal task: the bridge runs it as the DocumentChecksWorkflow in Temporal and waits for the result.</bpmn:documentation>
+
+    <bpmn:startEvent id="Start_Request" name="Onboarding request">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="customerName" label="Customer name (include 'Sanction' to trigger the error path)" type="string" defaultValue="Ada Lovelace">
+            <camunda:validation>
+              <camunda:constraint name="required" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="country" label="Country (ISO code; IR, KP, SY, RU, BY score high risk)" type="string" defaultValue="FR" />
+          <camunda:formField id="requestedAmount" label="Requested credit amount" type="long" defaultValue="250000" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_ToReview</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:userTask id="Task_AnalystReview" name="Analyst review" camunda:assignee="demo">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="customerName" label="Customer name" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="analystNote" label="Analyst note" type="string" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToDocumentChecks</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_DocumentChecks" name="Document checks" camunda:type="external" camunda:topic="temporal" camunda:modelerTemplate="org.finos.fluxnova.temporal.TemporalTask">
+      <bpmn:documentation>Temporal task: runs DocumentChecksWorkflow (fetch documents, AI extraction with retries, durable timer, sanctions screening, compensation).</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="temporalWorkflowType">DocumentChecksWorkflow</camunda:inputParameter>
+          <camunda:inputParameter name="temporalTaskQueue">kyc-document-checks</camunda:inputParameter>
+          <camunda:inputParameter name="temporalWorkflowId">${execution.processBusinessKey}:${execution.currentActivityId}</camunda:inputParameter>
+          <camunda:inputParameter name="temporalInputVariables">customerName,country,requestedAmount</camunda:inputParameter>
+          <camunda:inputParameter name="temporalResultVariable">temporalResult</camunda:inputParameter>
+          <camunda:inputParameter name="temporalErrorCode">DOCUMENT_CHECKS_FAILED</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToDocumentChecks</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToCredit</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent id="Boundary_DocumentChecksError" name="Checks failed" attachedToRef="Task_DocumentChecks">
+      <bpmn:outgoing>Flow_ToCompliance</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorDef_AnyTemporalError" camunda:errorCodeVariable="documentCheckError" camunda:errorMessageVariable="documentCheckErrorMessage" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:businessRuleTask id="Task_CreditDecision" name="Credit decision" camunda:decisionRef="creditDecision" camunda:mapDecisionResult="singleEntry" camunda:resultVariable="creditDecision">
+      <bpmn:incoming>Flow_ToCredit</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToGateway</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+
+    <bpmn:exclusiveGateway id="Gateway_Decision" name="Decision?" default="Flow_Review">
+      <bpmn:incoming>Flow_ToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Approve</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Reject</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Review</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_AccountOpened" name="Account opened">
+      <bpmn:incoming>Flow_Approve</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="End_Rejected" name="Application rejected">
+      <bpmn:incoming>Flow_Reject</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:userTask id="Task_SeniorReview" name="Senior review" camunda:assignee="demo">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="riskScore" label="Risk score (from Temporal)" type="long">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="seniorApproved" label="Approve?" type="boolean" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Review</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToReviewed</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:endEvent id="End_Reviewed" name="Reviewed">
+      <bpmn:incoming>Flow_ToReviewed</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:userTask id="Task_ComplianceException" name="Compliance exception" camunda:assignee="demo">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="documentCheckError" label="Error code" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="documentCheckErrorMessage" label="Message" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="complianceNote" label="Compliance note" type="string" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToCompliance</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToBlocked</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:endEvent id="End_Blocked" name="Onboarding blocked">
+      <bpmn:incoming>Flow_ToBlocked</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_ToReview" sourceRef="Start_Request" targetRef="Task_AnalystReview" />
+    <bpmn:sequenceFlow id="Flow_ToDocumentChecks" sourceRef="Task_AnalystReview" targetRef="Task_DocumentChecks" />
+    <bpmn:sequenceFlow id="Flow_ToCredit" sourceRef="Task_DocumentChecks" targetRef="Task_CreditDecision" />
+    <bpmn:sequenceFlow id="Flow_ToGateway" sourceRef="Task_CreditDecision" targetRef="Gateway_Decision" />
+    <bpmn:sequenceFlow id="Flow_Approve" name="approve" sourceRef="Gateway_Decision" targetRef="End_AccountOpened">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${creditDecision == 'APPROVE'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Reject" name="reject" sourceRef="Gateway_Decision" targetRef="End_Rejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${creditDecision == 'REJECT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Review" name="review" sourceRef="Gateway_Decision" targetRef="Task_SeniorReview" />
+    <bpmn:sequenceFlow id="Flow_ToReviewed" sourceRef="Task_SeniorReview" targetRef="End_Reviewed" />
+    <bpmn:sequenceFlow id="Flow_ToCompliance" sourceRef="Boundary_DocumentChecksError" targetRef="Task_ComplianceException" />
+    <bpmn:sequenceFlow id="Flow_ToBlocked" sourceRef="Task_ComplianceException" targetRef="End_Blocked" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="Diagram_KycOnboarding">
+    <bpmndi:BPMNPlane id="Plane_KycOnboarding" bpmnElement="kyc-onboarding">
+      <bpmndi:BPMNShape id="Start_Request_di" bpmnElement="Start_Request">
+        <dc:Bounds x="152" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AnalystReview_di" bpmnElement="Task_AnalystReview">
+        <dc:Bounds x="240" y="160" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DocumentChecks_di" bpmnElement="Task_DocumentChecks">
+        <dc:Bounds x="400" y="160" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_DocumentChecksError_di" bpmnElement="Boundary_DocumentChecksError">
+        <dc:Bounds x="432" y="222" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CreditDecision_di" bpmnElement="Task_CreditDecision">
+        <dc:Bounds x="560" y="160" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Decision_di" bpmnElement="Gateway_Decision" isMarkerVisible="true">
+        <dc:Bounds x="715" y="175" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AccountOpened_di" bpmnElement="End_AccountOpened">
+        <dc:Bounds x="842" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Rejected_di" bpmnElement="End_Rejected">
+        <dc:Bounds x="842" y="72" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SeniorReview_di" bpmnElement="Task_SeniorReview">
+        <dc:Bounds x="810" y="270" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Reviewed_di" bpmnElement="End_Reviewed">
+        <dc:Bounds x="972" y="292" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ComplianceException_di" bpmnElement="Task_ComplianceException">
+        <dc:Bounds x="400" y="320" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Blocked_di" bpmnElement="End_Blocked">
+        <dc:Bounds x="562" y="342" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToReview_di" bpmnElement="Flow_ToReview">
+        <di:waypoint x="188" y="200" />
+        <di:waypoint x="240" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToDocumentChecks_di" bpmnElement="Flow_ToDocumentChecks">
+        <di:waypoint x="340" y="200" />
+        <di:waypoint x="400" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToCredit_di" bpmnElement="Flow_ToCredit">
+        <di:waypoint x="500" y="200" />
+        <di:waypoint x="560" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToGateway_di" bpmnElement="Flow_ToGateway">
+        <di:waypoint x="660" y="200" />
+        <di:waypoint x="715" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Approve_di" bpmnElement="Flow_Approve">
+        <di:waypoint x="765" y="200" />
+        <di:waypoint x="842" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Reject_di" bpmnElement="Flow_Reject">
+        <di:waypoint x="740" y="175" />
+        <di:waypoint x="740" y="90" />
+        <di:waypoint x="842" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Review_di" bpmnElement="Flow_Review">
+        <di:waypoint x="740" y="225" />
+        <di:waypoint x="740" y="310" />
+        <di:waypoint x="810" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToReviewed_di" bpmnElement="Flow_ToReviewed">
+        <di:waypoint x="910" y="310" />
+        <di:waypoint x="972" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToCompliance_di" bpmnElement="Flow_ToCompliance">
+        <di:waypoint x="450" y="258" />
+        <di:waypoint x="450" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToBlocked_di" bpmnElement="Flow_ToBlocked">
+        <di:waypoint x="500" y="360" />
+        <di:waypoint x="562" y="360" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

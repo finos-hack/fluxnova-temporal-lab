@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_CreditDecision"
+             name="Credit decision"
+             namespace="http://fluxnova.finos.org/lab/kyc">
+  <decision id="creditDecision" name="Credit decision">
+    <decisionTable id="DecisionTable_Credit" hitPolicy="FIRST">
+      <input id="Input_RiskScore" label="Risk score (from Temporal)">
+        <inputExpression id="InputExpression_RiskScore" typeRef="integer">
+          <text>riskScore</text>
+        </inputExpression>
+      </input>
+      <input id="Input_RequestedAmount" label="Requested amount">
+        <inputExpression id="InputExpression_RequestedAmount" typeRef="long">
+          <text>requestedAmount</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Decision" label="Decision" name="creditDecision" typeRef="string" />
+      <rule id="Rule_HighRisk">
+        <description>High risk score</description>
+        <inputEntry id="Rule_HighRisk_Risk"><text>&gt;= 70</text></inputEntry>
+        <inputEntry id="Rule_HighRisk_Amount"><text></text></inputEntry>
+        <outputEntry id="Rule_HighRisk_Out"><text>"REJECT"</text></outputEntry>
+      </rule>
+      <rule id="Rule_MediumRisk">
+        <description>Medium risk score</description>
+        <inputEntry id="Rule_MediumRisk_Risk"><text>&gt;= 40</text></inputEntry>
+        <inputEntry id="Rule_MediumRisk_Amount"><text></text></inputEntry>
+        <outputEntry id="Rule_MediumRisk_Out"><text>"REVIEW"</text></outputEntry>
+      </rule>
+      <rule id="Rule_LargeAmount">
+        <description>Large exposure needs a senior review</description>
+        <inputEntry id="Rule_LargeAmount_Risk"><text></text></inputEntry>
+        <inputEntry id="Rule_LargeAmount_Amount"><text>&gt; 1000000</text></inputEntry>
+        <outputEntry id="Rule_LargeAmount_Out"><text>"REVIEW"</text></outputEntry>
+      </rule>
+      <rule id="Rule_Default">
+        <inputEntry id="Rule_Default_Risk"><text></text></inputEntry>
+        <inputEntry id="Rule_Default_Amount"><text></text></inputEntry>
+        <outputEntry id="Rule_Default_Out"><text>"APPROVE"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fluxnova Designer · Temporal lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="vendor/camunda-bpmn-js/assets/camunda-platform-modeler.css">
+  <link rel="stylesheet" href="plugin/fluxnova-temporal-task/style.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">
+      <strong>Fluxnova Designer</strong>
+      <span class="tag">with Temporal task</span>
+    </div>
+    <div class="actions">
+      <button id="btn-new" type="button">New</button>
+      <button id="btn-sample" type="button">KYC sample</button>
+      <label class="button">Open…<input id="file-open" type="file" accept=".bpmn,.xml" hidden></label>
+      <button id="btn-download" type="button">Download</button>
+      <span class="sep"></span>
+      <button id="btn-deploy" type="button" class="primary">Deploy to Fluxnova</button>
+      <button id="btn-start" type="button" class="primary">Start instance</button>
+    </div>
+    <nav class="links">
+      <a id="link-cockpit" target="_blank" rel="noopener">Cockpit</a>
+      <a id="link-tasklist" target="_blank" rel="noopener">Tasklist</a>
+      <a id="link-control-center" target="_blank" rel="noopener">Control Center</a>
+      <a id="link-temporal" target="_blank" rel="noopener">Temporal UI</a>
+      <a href="downloads/fluxnova-temporal-task-plugin.zip">Desktop plugin</a>
+    </nav>
+  </header>
+
+  <main class="workspace">
+    <div id="canvas" class="canvas"></div>
+    <aside id="properties" class="properties"></aside>
+  </main>
+
+  <footer id="status" class="status" role="status">Loading…</footer>
+
+  <dialog id="start-dialog">
+    <form method="dialog" id="start-form">
+      <h2>Start <span id="start-process-key"></span></h2>
+      <label>Business key
+        <input name="businessKey" required>
+      </label>
+      <label>Variables (JSON)
+        <textarea name="variables" rows="7" spellcheck="false"></textarea>
+      </label>
+      <p class="hint">Use a name containing "Sanction" to see the BPMN error path, or country RU for a rejection.</p>
+      <menu>
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="start" class="primary">Start</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="vendor/camunda-bpmn-js/camunda-platform-modeler.development.js"></script>
+  <script src="plugin/temporal-task.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

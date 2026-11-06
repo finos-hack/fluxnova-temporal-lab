@@ -1,0 +1,12 @@
+{
+  "name": "fluxnova-temporal-task-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bpmn-js module and Fluxnova Modeler plugin adding a Temporal task",
+  "license": "Apache-2.0",
+  "main": "src/temporal-task.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.js"
+  }
+}

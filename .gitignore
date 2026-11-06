@@ -1,0 +1,6 @@
+plugin/dist/
+fluxnova/target/
+__pycache__/
+.pytest_cache/
+node_modules/
+.env

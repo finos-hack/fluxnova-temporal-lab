@@ -1,0 +1,87 @@
+# Fluxnova x Temporal lab — everything on one laptop:
+#
+#   docker compose up --build
+#
+#   Designer (web modeler + Temporal task)   http://localhost:8090
+#   Fluxnova Cockpit / Tasklist (demo/demo)  http://localhost:8080/fluxnova/app/
+#   Fluxnova Control Center                  http://localhost:4000
+#   Temporal UI                              http://localhost:8233
+name: fluxnova-temporal-lab
+
+services:
+  temporal:
+    image: temporalio/temporal:${TEMPORAL_CLI_VERSION:-latest}
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--log-level", "warn"]
+    ports:
+      - "7233:7233"   # gRPC frontend
+      - "8233:8233"   # Temporal Web UI
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 5s
+
+  fluxnova:
+    build:
+      context: .
+      dockerfile: fluxnova/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m"
+
+  temporal-worker:
+    build:
+      context: .
+      dockerfile: temporal-worker/Dockerfile
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      FLAKY_ATTEMPTS: "2"
+    depends_on:
+      temporal:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bridge:
+    build:
+      context: .
+      dockerfile: bridge/Dockerfile
+    environment:
+      FLUXNOVA_REST_URL: http://fluxnova:8080/engine-rest
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_UI_URL: http://localhost:8233
+    depends_on:
+      temporal:
+        condition: service_healthy
+      fluxnova:
+        condition: service_started
+    restart: unless-stopped
+
+  designer:
+    build:
+      context: .
+      dockerfile: designer/Dockerfile
+    ports:
+      - "8090:80"
+    depends_on:
+      fluxnova:
+        condition: service_started
+
+  # Official image: https://hub.docker.com/r/finos/fluxnova-control-center
+  # The BFF calls the lab engine over the Compose network. Auth stays off,
+  # matching the engine (authorization disabled, REST with no credentials).
+  control-center:
+    image: finos/fluxnova-control-center:1.3.0
+    ports:
+      - "4000:4000"
+    environment:
+      FXN_AUTH_STRATEGY: none
+      FXN_FORCE_HTTP: "true"
+      FXN_REST_API_URL: http://fluxnova:8080/engine-rest
+      FXN_LOG_LEVEL: info
+    depends_on:
+      fluxnova:
+        condition: service_started

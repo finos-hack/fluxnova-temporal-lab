@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.finos.fluxnova.lab</groupId>
+  <artifactId>fluxnova-temporal-lab-engine</artifactId>
+  <version>0.1.0</version>
+  <name>Fluxnova engine for the Fluxnova x Temporal lab</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <!-- Same versions as finos/fluxnova-examples/fluxnova-springboot-example -->
+    <fluxnova.version>3.0.0</fluxnova.version>
+    <spring-boot.version>4.0.5</spring-boot.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.finos.fluxnova.bpm</groupId>
+        <artifactId>fluxnova-bom</artifactId>
+        <version>${fluxnova.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- REST API (/engine-rest), used by the bridge and the designer -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm.springboot</groupId>
+      <artifactId>fluxnova-bpm-spring-boot-starter-rest</artifactId>
+    </dependency>
+    <!-- Cockpit, Tasklist, Admin (/fluxnova/app) -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm.springboot</groupId>
+      <artifactId>fluxnova-bpm-spring-boot-starter-webapp</artifactId>
+      <version>${fluxnova.version}</version>
+    </dependency>
+    <!-- JSON variables returned by Temporal workflows -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm</groupId>
+      <artifactId>fluxnova-engine-plugin-spin</artifactId>
+      <version>${fluxnova.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.finos.fluxnova.spin</groupId>
+      <artifactId>fluxnova-spin-dataformat-all</artifactId>
+      <version>${fluxnova.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>fluxnova-engine</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring-boot.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
